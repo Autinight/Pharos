@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import signal
 import subprocess
 import sys
 import time
@@ -194,11 +195,9 @@ time.sleep(300)
 
 
 def _alive(pid: int) -> bool:
-    try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
-        return False
-    return True
+    # kill(pid, 0) also succeeds for zombies; a terminated process is not live.
+    from pharos.orchestration.services import is_alive
+    return is_alive(pid)
 
 
 def _wait_for(path: Path):
@@ -213,13 +212,25 @@ def test_end_group_kills_a_tree_that_ignores_sigterm(tmp: Path):
     pids = tmp / "pids"
     proc = subprocess.Popen([sys.executable, "-c", _STUBBORN, str(pids)], start_new_session=True)
     parent, child = _wait_for(pids)
-    loop._end_group(proc, grace=0.5)
-    assert not _alive(parent) and not _alive(child)
     try:
-        os.killpg(proc.pid, 0)
-        assert False, "the process group still has members"
-    except ProcessLookupError:
-        pass
+        loop._end_group(proc, grace=0.5)
+        proc.wait(timeout=3)
+        end = time.monotonic() + 3
+        while (_alive(parent) or _alive(child)) and time.monotonic() < end:
+            time.sleep(0.05)
+        assert not _alive(parent) and not _alive(child)
+        # launchd/init may briefly retain orphan zombies. Independently assert
+        # that no runnable/sleeping member of the group survived the cleanup.
+        rows = subprocess.run(["ps", "-axo", "pgid=,stat="], capture_output=True,
+                              text=True, check=True).stdout.splitlines()
+        assert not any(len(f := row.split()) >= 2 and f[0] == str(proc.pid)
+                       and not f[1].startswith("Z") for row in rows)
+    finally:
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)
+        except (ProcessLookupError, PermissionError):
+            pass
+        proc.wait(timeout=3)
 
 
 def test_run_round_hard_timeout_ends_the_whole_tree(tmp: Path):

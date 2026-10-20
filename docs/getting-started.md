@@ -5,20 +5,25 @@ it to set up Pharos; the commands below are the manual installation reference.
 
 ## Install
 
-Use a dedicated Linux environment with Python 3.10+, Git, Bash, curl, tar,
-and tmux. Install Chromium or Chrome for reports and `pdflatex` or `tectonic`
-for papers through your host's package manager.
+Use a dedicated Linux or macOS environment with Python 3.10+, Git, Bash, curl,
+tar, and tmux. macOS users: read the [platform guide](macos.md), including
+resource-limit differences, before installing. Install Chromium or Chrome for
+reports and `pdflatex` or `tectonic` for papers through your host's package manager.
 
 ```bash
-git clone https://github.com/frenzymath/Pharos.git
+git clone --branch feat/macos-support https://github.com/Autinight/Pharos.git
 cd Pharos
 bash scripts/bootstrap.sh
 cp config/pharos.env.example config/pharos.env
 ```
 
 Bootstrap installs Node, a Python environment, the Codex CLI, and MathJax under
-`runtime/`; it also registers the computation slice with user systemd and links
-`pharos` into `~/.local/bin`. Keep the source tree in place for runtime resources.
+`runtime/`; on Linux it also registers the computation slice with user systemd.
+On macOS, sampled per-job memory guards replace that slice (no collective cap).
+It links `pharos` into `~/.local/bin`. Keep the source tree in place for runtime
+resources. `bash scripts/bootstrap.sh --print-plan` is a read-only platform check.
+After installation, `pharos doctor --offline` checks local dependencies without
+contacting the model backend.
 
 ## Configure the backend
 
@@ -60,7 +65,7 @@ the ops agent configures the deployment, creates the project, and launches it.
 It shows you the problem statement and initial guidance before research starts.
 
 You can also select the Pharos repository folder as a project in the Codex
-desktop app. That session needs access to the configured Linux deployment and
+desktop app. That session needs access to the configured Linux/macOS deployment and
 its tools; selecting a folder does not perform the installation above.
 
 After launch, give research instructions to the project's main session and

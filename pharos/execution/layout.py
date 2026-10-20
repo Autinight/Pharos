@@ -392,6 +392,7 @@ def parse_roles(spec: str) -> List[Tuple[str, str]]:
     first worker of a base keeps the bare name; the rest get numeric suffixes.
     Raises ``ValueError`` on a malformed/empty spec or a count < 1."""
     out: List[Tuple[str, str]] = []
+    seen = set()
     for part in (p.strip() for p in spec.split(",") if p.strip()):
         m = _ROLE_RE.match(part)
         if not m:
@@ -401,6 +402,11 @@ def parse_roles(spec: str) -> List[Tuple[str, str]]:
             raise ValueError(f"role count must be >= 1: {part!r}")
         for i in range(1, count + 1):
             name = base if i == 1 else f"{base}{i}"
+            # Default macOS APFS is case-insensitive. Validate before creating
+            # any directories so two roles cannot overwrite the same worker.
+            if name.casefold() in seen:
+                raise ValueError(f"duplicate/case-insensitive worker name: {name!r}")
+            seen.add(name.casefold())
             out.append((name, base))
     if not out:
         raise ValueError("empty role spec")

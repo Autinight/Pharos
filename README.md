@@ -2,6 +2,11 @@
 
 **Preview — under active development.**
 
+> **macOS compatibility preview (Autinight fork):** Native Apple Silicon / Intel
+> bootstrap, portable computation guards, monitoring and shell support.
+> See [macOS installation and limitations](docs/macos.md).
+> Upstream: [frenzymath/Pharos](https://github.com/frenzymath/Pharos).
+
 Pharos is a mathematics research system for capable reasoning models such as
 GPT-6 Astra. A project main
 agent organizes research routes, workers develop proofs, and an independent

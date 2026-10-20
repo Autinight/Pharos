@@ -59,27 +59,37 @@ def _io_rate(window: float = 1.0) -> Dict:
         return {"io_read_mbps": None, "io_write_mbps": None}
     time.sleep(window)
     b = _disk_bytes()
+    if b is None:
+        return {"io_read_mbps": None, "io_write_mbps": None}
     return {"io_read_mbps": round((b[0] - a[0]) / window / 2**20, 2),
             "io_write_mbps": round((b[1] - a[1]) / window / 2**20, 2)}
 
 
 def _group_io(pgid: int) -> Dict:
     """Sum disk I/O for a worker's process group from ``/proc/<pid>/io``."""
+    proc_root = Path("/proc")
+    if not proc_root.is_dir():
+        # macOS has no /proc. Unknown metrics must remain null, never fake 0.
+        return {"io_read_mb": None, "io_write_mb": None}
     rd = wr = 0
-    for pid_dir in Path("/proc").iterdir():
+    observed = False
+    for pid_dir in proc_root.iterdir():
         if not pid_dir.name.isdigit():
             continue
         try:
             if os.getpgid(int(pid_dir.name)) != pgid:
                 continue
-            for line in (pid_dir / "io").read_text().splitlines():
+            lines = (pid_dir / "io").read_text().splitlines()
+            observed = True
+            for line in lines:
                 if line.startswith("read_bytes:"):
                     rd += int(line.split()[1])
                 elif line.startswith("write_bytes:"):
                     wr += int(line.split()[1])
         except (OSError, ValueError):
             continue
-    return {"io_read_mb": round(rd / 2**20, 1), "io_write_mb": round(wr / 2**20, 1)}
+    return {"io_read_mb": round(rd / 2**20, 1) if observed else None,
+            "io_write_mb": round(wr / 2**20, 1) if observed else None}
 
 
 def sample(project: str) -> Dict:

@@ -11,4 +11,5 @@ import pytest
 @pytest.fixture
 def tmp():
     with tempfile.TemporaryDirectory() as d:
-        yield Path(d)
+        # macOS /var is a symlink to /private/var; production paths resolve it.
+        yield Path(d).resolve()

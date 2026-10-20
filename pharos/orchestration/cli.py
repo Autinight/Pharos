@@ -87,8 +87,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     doc = sub.add_parser("doctor", help="health of the whole stack; --probe also renders a PDF, "
                                         "compiles the paper template and queries the literature service")
-    doc.add_argument("--probe", action="store_true",
-                     help="exercise render, TeX and matlas for real; essentials become FAIL")
+    checks = doc.add_mutually_exclusive_group()
+    checks.add_argument("--probe", action="store_true",
+                        help="exercise render, TeX and matlas for real; essentials become FAIL")
+    checks.add_argument("--offline", action="store_true",
+                        help="local checks only; do not contact model or literature backends")
     doc.add_argument("--json", action="store_true")
 
     a = sub.add_parser("assign", help="write a worker's per-round TASK.md")
@@ -258,10 +261,11 @@ def main(argv: Optional[List[str]] = None) -> int:
         else:
             projects = [args.project] if args.project else L.list_projects()
             for row in services.main_status(projects):
-                print(f"  {'up  ' if row['running'] else 'down'} {row['session']}")
+                state = {True: "up", False: "down", None: "unknown"}.get(row["running"], "unknown")
+                print(f"  {state:<7} {row['session']}")
 
     elif args.cmd == "doctor":
-        rows = health.doctor(probe=args.probe)
+        rows = health.doctor(probe=args.probe, offline=args.offline)
         print(json.dumps(rows, ensure_ascii=False, indent=2) if args.json
               else "== Pharos doctor ==\n" + _fmt_doctor(rows))
         return 1 if any(r["state"] == "FAIL" for r in rows) else 0

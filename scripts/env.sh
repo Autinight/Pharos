@@ -1,7 +1,14 @@
 #!/usr/bin/env bash
 # Source this file to load deployment settings and the installed toolchain.
 
-PHAROS_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/.." && pwd)"
+# macOS defaults to zsh; $0 there names the interactive shell, not this file.
+if [ -n "${ZSH_VERSION:-}" ]; then
+  _pharos_env_source="${(%):-%x}"
+else
+  _pharos_env_source="${BASH_SOURCE[0]:-$0}"
+fi
+PHAROS_ROOT="$(cd "$(dirname "$_pharos_env_source")/.." && pwd)"
+unset _pharos_env_source
 export PHAROS_ROOT
 
 # 1) your config (account, models, any override) — gitignored, one file

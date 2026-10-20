@@ -55,7 +55,9 @@ configuration and authentication link to the shared home. Avoid exporting one
 
 With user systemd available, `config/pharos-compute.slice` limits the deployment's
 computation pool to 4 CPUs and 16 GB. Without it, computation has per-job memory
-limits and low priority but no collective CPU or memory cap. Scripts run through
+limits and low priority but no collective CPU or memory cap. On macOS the
+memory guard samples process-group RSS instead of using `RLIMIT_AS`; it is
+best effort, not a kernel-enforced hard memory bound. See [macOS](macos.md). Scripts run through
 `pharos compute` from a project's `computation/` folder.
 
 Less common overrides are documented alongside their implementation in

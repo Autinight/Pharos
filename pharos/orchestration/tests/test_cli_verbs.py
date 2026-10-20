@@ -63,8 +63,8 @@ def test_alive_permission_error_means_alive():
 
 
 def test_alive_zombie_is_dead(tmp: Path):
-    # an exited-but-unreaped child answers kill(pid,0) yet is effectively dead;
-    # /proc's Z state must win
+    # An exited-but-unreaped child answers kill(pid,0) yet is effectively dead.
+    # Use ps as an independent oracle on both Linux and macOS.
     import subprocess
     import time
     proc = subprocess.Popen(["true"])
@@ -72,11 +72,9 @@ def test_alive_zombie_is_dead(tmp: Path):
         pid = proc.pid
 
         def is_zombie():
-            try:
-                stat = Path(f"/proc/{pid}/stat").read_text()
-                return stat.rsplit(")", 1)[1].split()[0] == "Z"
-            except (OSError, IndexError):
-                return False
+            row = subprocess.run(["ps", "-p", str(pid), "-o", "stat="],
+                                 capture_output=True, text=True, timeout=5)
+            return row.stdout.strip().startswith("Z")
 
         end = time.time() + 5
         while time.time() < end and not is_zombie():

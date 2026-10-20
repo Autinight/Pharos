@@ -126,7 +126,7 @@ def _check(label: str, ok: bool, detail: str = "", soft: bool = False) -> Dict:
             "detail": detail}
 
 
-def doctor(probe: bool = False) -> List[Dict]:
+def doctor(probe: bool = False, offline: bool = False) -> List[Dict]:
     """Check dependencies, backend connectivity, and project service status.
 
     Backend checks may make an API request and append to the health log.
@@ -136,6 +136,8 @@ def doctor(probe: bool = False) -> List[Dict]:
     """
     from .services import verify_health          # local import (services imports cli)
 
+    if probe and offline:
+        raise SystemExit("--offline and --probe cannot be combined")
     rows: List[Dict] = []
     root = L.repo_root()
 
@@ -157,22 +159,30 @@ def doctor(probe: bool = False) -> List[Dict]:
                        soft=not probe))
 
     codex_bin = codex.resolve_bin()
-    version = subprocess.run([codex_bin, "--version"], capture_output=True, text=True)
-    rows.append(_check("codex", version.returncode == 0,
-                       version.stdout.strip() or "not working (run scripts/bootstrap.sh)"))
+    try:
+        version = subprocess.run([codex_bin, "--version"], capture_output=True,
+                                 text=True, timeout=15)
+        rows.append(_check("codex", version.returncode == 0,
+                           version.stdout.strip() or "not working (run scripts/bootstrap.sh)"))
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        rows.append(_check("codex", False, f"not available: {exc} (run scripts/bootstrap.sh)"))
 
     shared = codex.shared_codex_home()
     rows.append(_check("codex config", (shared / "config.toml").is_file(),
                        str(shared / "config.toml") if (shared / "config.toml").is_file()
                        else "missing (scripts/setup-codex.sh)"))
 
-    ping = check_codex()
-    rows.append(_check("codex backend", bool(ping.get("ok")),
-                       ping.get("err") or f"latency {ping.get('latency_s')}s", soft=not probe))
-    if ping.get("recent_logs_with_api_errors"):
-        rows.append(_check("recent API errors", False,
-                           f"{ping['recent_logs_with_api_errors']} recent log(s) show API failures",
-                           soft=True))
+    if offline:
+        rows.append(_check("codex backend", False,
+                           "skipped (--offline); credentials and model access NOT tested", soft=True))
+    else:
+        ping = check_codex()
+        rows.append(_check("codex backend", bool(ping.get("ok")),
+                           ping.get("err") or f"latency {ping.get('latency_s')}s", soft=not probe))
+        if ping.get("recent_logs_with_api_errors"):
+            rows.append(_check("recent API errors", False,
+                               f"{ping['recent_logs_with_api_errors']} recent log(s) show API failures",
+                               soft=True))
 
     projects = L.list_projects()
     if not projects:
@@ -211,9 +221,10 @@ def doctor(probe: bool = False) -> List[Dict]:
     rows.append(_check("tex engine", bool(engine),
                        engine or "no pdflatex / tectonic on PATH — `pharos paper build` cannot "
                                  "produce the paper (install texlive, or set PHAROS_TEX_ENGINE)"))
-    prio = [t for t in ("ionice", "nice") if not shutil.which(t)]
+    priority_tools = ("nice",) if sys.platform == "darwin" else ("ionice", "nice")
+    prio = [t for t in priority_tools if not shutil.which(t)]
     rows.append(_check("priority tools", not prio, "" if not prio else
-                       f"missing {', '.join(prio)} — workers cannot be deprioritized", soft=True))
+                       f"missing {', '.join(prio)} — reduced priority support", soft=True))
     try:
         free_gb = shutil.disk_usage(root / "runtime" if (root / "runtime").exists() else root).free / 1e9
         rows.append(_check("disk free (runtime)", free_gb >= 20, f"{free_gb:.0f} GB", soft=True))
@@ -221,13 +232,23 @@ def doctor(probe: bool = False) -> List[Dict]:
         pass
 
     from .compute import _systemd_available
-    slice_file = Path.home() / ".config" / "systemd" / "user" / "pharos-compute.slice"
-    ok = _systemd_available() and slice_file.is_file()
-    rows.append(_check(
-        "compute caps", ok,
-        f"slice installed ({slice_file})" if ok else
-        "no systemd slice — per-job rlimits only; run bootstrap (host-crash risk)",
-        soft=True))
+    if sys.platform == "darwin":
+        try:
+            import psutil  # noqa: F401
+            rows.append(_check("macOS RSS monitor", True))
+        except ImportError:
+            rows.append(_check("macOS RSS monitor", False, "psutil missing; re-run bootstrap"))
+        rows.append(_check("compute caps", False,
+                           "macOS: sampled per-job RSS + wall-time only; no collective CPU/RAM cap",
+                           soft=True))
+    else:
+        slice_file = Path.home() / ".config" / "systemd" / "user" / "pharos-compute.slice"
+        ok = _systemd_available() and slice_file.is_file()
+        rows.append(_check(
+            "compute caps", ok,
+            f"slice installed ({slice_file})" if ok else
+            "no systemd slice — per-job rlimits only; no collective CPU/RAM cap",
+            soft=True))
 
     if probe:
         rows.extend(probes(chrome=chrome, engine=engine))

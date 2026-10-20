@@ -84,8 +84,15 @@ def chrome_bin() -> Optional[str]:
     if env:
         return env
     for c in ("chromium", "chromium-browser", "google-chrome", "google-chrome-stable"):
-        if shutil.which(c):
-            return c
+        found = shutil.which(c)
+        if found:
+            return found
+    # GUI applications are generally not on PATH on macOS.
+    for root in (Path("/Applications"), Path.home() / "Applications"):
+        for app, binary in (("Google Chrome", "Google Chrome"), ("Chromium", "Chromium")):
+            candidate = root / f"{app}.app" / "Contents" / "MacOS" / binary
+            if candidate.is_file() and os.access(candidate, os.X_OK):
+                return str(candidate)
     return None
 
 
@@ -113,6 +120,8 @@ def render(md_path: Path, pdf_path: Optional[Path] = None) -> Path:
         page = Path(td) / "report.html"
         page.write_text(html_text, encoding="utf-8")
         cmd = [chrome, "--headless", "--disable-gpu", "--no-pdf-header-footer",
+               "--no-first-run", "--no-default-browser-check",
+               f"--user-data-dir={Path(td) / 'chrome-profile'}",
                "--virtual-time-budget=20000",     # let MathJax finish typesetting
                f"--print-to-pdf={out}", page.resolve().as_uri()]
         done = subprocess.run(cmd, capture_output=True, text=True, timeout=180)

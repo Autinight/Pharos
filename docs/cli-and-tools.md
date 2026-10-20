@@ -20,7 +20,7 @@ The parser and scope rules are in [cli.py](../pharos/orchestration/cli.py) and
 | `paper` | Assign sections, run and inspect writing loops, verify, and build papers |
 | `compute` | Run a script from the project's computation folder under configured limits |
 | `usage` | Read recorded token and runtime statistics |
-| `doctor`, `check-codex` | Check deployment health and backend access |
+| `doctor`, `check-codex` | Check deployment health and backend access; `doctor --offline` skips external backend requests |
 | `mcp-call` | Make one MCP call in a fresh session |
 
 For example, assignment uses `pharos assign <project>/<worker> --file <task.md>`

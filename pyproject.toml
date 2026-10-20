@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pharos"
-version = "3.1.0"
+version = "3.1.1a1"
 description = "Mathematical research orchestration with persistent fact graphs"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -16,6 +16,7 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS :: MacOS X",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -23,12 +24,13 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering :: Mathematics",
 ]
-# The core stores use the standard library; services use the extras below.
-dependencies = []
+# Core stores are stdlib-only; macOS computation uses sampled process-group RSS.
+dependencies = ["psutil>=6; sys_platform == 'darwin'"]
 
 [project.urls]
-Repository = "https://github.com/frenzymath/Pharos"
-Documentation = "https://github.com/frenzymath/Pharos/tree/main/docs"
+Repository = "https://github.com/Autinight/Pharos"
+Documentation = "https://github.com/Autinight/Pharos/tree/feat/macos-support/docs"
+Upstream = "https://github.com/frenzymath/Pharos"
 
 [project.scripts]
 pharos = "pharos.orchestration.cli:main"

@@ -31,6 +31,7 @@ from typing import Optional
 from . import layout as L
 from . import scaffold
 from pharos import codex
+from pharos.orchestration.services import process_group_alive
 
 _FACT_ID_RE = re.compile(r'"?fact_id"?\s*[:=]\s*"?([0-9a-f]{16})"?')
 
@@ -109,14 +110,24 @@ def _end_group(proc: subprocess.Popen, grace: float = 10.0) -> None:
         try:
             os.killpg(proc.pid, sig)
         except ProcessLookupError:
+            proc.poll()
             return
+        except PermissionError:
+            if not process_group_alive(proc.pid):
+                proc.wait(timeout=2)
+                return
+            raise
         end = time.time() + wait
         while time.time() < end:
             proc.poll()                      # reap the launcher once it is gone
-            try:
-                os.killpg(proc.pid, 0)       # raises when no member is left
-            except ProcessLookupError:
-                return
+            if not process_group_alive(proc.pid):
+                # ps may already see only zombies; reap our own launcher before
+                # returning so callers don't mistake it for a live process.
+                try:
+                    proc.wait(timeout=2)
+                    return
+                except subprocess.TimeoutExpired:
+                    break  # uncertain observation: still escalate to SIGKILL
             time.sleep(0.2)
 
 

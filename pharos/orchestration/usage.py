@@ -92,8 +92,11 @@ def _monitor_summary(project: str) -> Optional[Dict]:
     prev: Dict[str, bool] = {}
     for r in rows:
         for w in r.get("workers", []):
-            name, alive = w.get("worker"), bool(w.get("alive"))
-            if prev.get(name) and not alive:
+            name, alive = w.get("worker"), w.get("alive")
+            if not isinstance(alive, bool):
+                prev.pop(name, None)  # unknown breaks the observation sequence
+                continue
+            if prev.get(name) is True and alive is False:
                 deaths[name] = deaths.get(name, 0) + 1
             prev[name] = alive
 
@@ -182,8 +185,9 @@ def format_usage(u: Dict) -> str:
                      f"io rate last/max: read {m['io_read_mbps']}/{m['io_read_mbps_max']} "
                      f"write {m['io_write_mbps']}/{m['io_write_mbps_max']} MB/s; "
                      f"api errors {m['api_errors']}")
+        main_state = {True: "up", False: "down", None: "unknown"}.get(m["main_up"], "unknown")
         lines.append(f"    last: disk {m['disk_free_gb']}G free, "
-                     f"verify {m['verify']}, main {'up' if m['main_up'] else 'down'}")
+                     f"verify {m['verify']}, main {main_state}")
     else:
         lines.append("  monitor: no samples (pharos monitor up <project>)")
     return "\n".join(lines)

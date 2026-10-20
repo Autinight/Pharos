@@ -46,14 +46,15 @@ def _pidfile(name: str) -> Path:
 
 def _read_pid(name: str) -> Optional[int]:
     try:
-        return int(_pidfile(name).read_text(encoding="utf-8").strip())
+        pid = int(_pidfile(name).read_text(encoding="utf-8").strip())
+        return pid if pid > 0 else None
     except (OSError, ValueError):
         return None
 
 
 def is_alive(pid: Optional[int]) -> bool:
-    """Check process liveness, excluding zombies through ``/proc`` state."""
-    if not pid:
+    """Check process liveness, excluding zombies on Linux and macOS."""
+    if not pid or pid <= 0:
         return False
     try:
         os.kill(pid, 0)
@@ -65,10 +66,53 @@ def is_alive(pid: Optional[int]) -> bool:
         stat = Path(f"/proc/{pid}/stat").read_text()
         return stat.rsplit(")", 1)[1].split()[0] != "Z"   # field after "(comm)"
     except (OSError, IndexError):
+        # BSD/macOS exposes state through ps, not /proc. Do not reap children
+        # here: callers may still own their Popen.wait() bookkeeping.
+        try:
+            row = subprocess.run(["ps", "-p", str(pid), "-o", "stat="],
+                                 capture_output=True, text=True, timeout=5)
+        except (OSError, subprocess.TimeoutExpired):
+            return True  # unknown; avoid declaring a possibly live PID dead
+        state = row.stdout.strip()
+        if row.returncode == 0 and state:
+            return not state.startswith("Z")
+        # ps=1 can also mean a query error; only ESRCH proves disappearance.
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return False
+        except PermissionError:
+            pass
         return True
 
 
 _alive = is_alive
+
+
+def process_group_alive(pgid: int) -> bool:
+    """Conservatively inspect a group; Darwin can return EPERM for killpg(0)
+    during leader-exit races. Query BSD/POSIX ps before assuming it disappeared.
+    """
+    if pgid <= 0:
+        return False
+    try:
+        os.killpg(pgid, 0)
+        return True
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        try:
+            row = subprocess.run(["ps", "-axo", "pgid=,stat="], capture_output=True,
+                                 text=True, timeout=5)
+        except (OSError, subprocess.TimeoutExpired):
+            return True
+        if row.returncode != 0:
+            return True
+        for line in row.stdout.splitlines():
+            fields = line.split()
+            if len(fields) >= 2 and fields[0] == str(pgid) and not fields[1].startswith("Z"):
+                return True
+        return False
 
 
 def kill_group(pid: Optional[int], grace: float = 5.0) -> bool:
@@ -78,7 +122,7 @@ def kill_group(pid: Optional[int], grace: float = 5.0) -> bool:
     directly to reach child processes even if the group leader has exited.
     Return whether a signal was sent.
     """
-    if not pid:
+    if not pid or pid <= 0:
         return False
     signalled = False
     for sig, wait in ((signal.SIGTERM, grace), (signal.SIGKILL, 0.0)):
@@ -87,16 +131,15 @@ def kill_group(pid: Optional[int], grace: float = 5.0) -> bool:
         except ProcessLookupError:
             return signalled
         except PermissionError:
-            try:
-                os.kill(pid, sig)
-            except ProcessLookupError:
-                return signalled
+            # Do not fall back to signalling an unverified individual PID.
+            return signalled
         signalled = True
         end = time.time() + wait
-        while wait and time.time() < end and _alive(pid):
+        while wait and time.time() < end:
+            if not process_group_alive(pid):
+                return True
             time.sleep(0.1)
-        if not _alive(pid):
-            return True
+        # A dead group leader does not imply its children have exited.
     return signalled
 
 
@@ -409,8 +452,12 @@ def main_start(project: str, tag: Optional[str] = None) -> Dict:
             )
         set_main_tag(project, tag)
     session = main_session_name(project)
-    if subprocess.run(["tmux", "has-session", "-t", session],
-                      capture_output=True).returncode == 0:
+    try:
+        existing = subprocess.run(["tmux", "has-session", "-t", f"={session}"],
+                                  capture_output=True, timeout=10)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise SystemExit(f"tmux unavailable ({exc}); on macOS: brew install tmux") from exc
+    if existing.returncode == 0:
         return {"session": session, "result": "already running",
                 "attach": f"tmux attach -t {session}"}
     codex.provision_codex_home(L.main_codex_home(project))
@@ -439,8 +486,13 @@ def main_start(project: str, tag: Optional[str] = None) -> Dict:
 
 def main_status(projects: List[str]) -> List[Dict]:
     """Which projects have a live main-agent tmux session."""
-    listed = subprocess.run(["tmux", "ls", "-F", "#{session_name}"],
-                            capture_output=True, text=True)
+    try:
+        listed = subprocess.run(["tmux", "ls", "-F", "#{session_name}"],
+                                capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return [{"project": p, "session": main_session_name(p), "running": None,
+                 "detail": f"tmux status unavailable: {exc}",
+                 "active_at": codex.last_activity(L.main_codex_home(p))} for p in projects]
     live = set(listed.stdout.split()) if listed.returncode == 0 else set()
     return [{"project": p, "session": main_session_name(p),
              "running": main_session_name(p) in live,

@@ -9,6 +9,7 @@ overrides through ``model()`` and ``effort()``.
 from __future__ import annotations
 
 import os
+import shlex
 import shutil
 import sys
 from pathlib import Path
@@ -194,7 +195,12 @@ def _runtime_env() -> Dict[str, str]:
         if not line or line.startswith("#") or "=" not in line:
             continue
         key, value = line.split("=", 1)
-        out[key.strip()] = value.strip()
+        try:
+            words = shlex.split(value.strip(), posix=True)
+        except ValueError:
+            continue  # malformed generated settings must not be executed
+        if len(words) == 1:
+            out[key.strip()] = words[0]
     return out
 
 
