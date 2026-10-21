@@ -39,7 +39,19 @@ main session yourself.
 
 Ask ops which projects are running, or request a report for a named project.
 `pharos report <project>` produces a Markdown report and PDF in `human_report/`;
-it reads the latest checkpoint and retrieves the facts cited in the report.
+the reporter reads the latest checkpoint and retrieves the cited facts. Codex
+writes only a uniquely named Markdown file, with a `workspace-write` sandbox
+and the Markdown output directory explicitly writable. The invoking host then
+renders and validates its PDF. A missing/invalid artifact or failed writer/render
+returns a nonzero exit; an existing report is never counted as a new success.
+
+Invoke `pharos report` from a host terminal or host-side runner that can launch
+Chrome, rather than from inside another browser-restricting Codex sandbox;
+child processes cannot remove restrictions inherited from such a caller. No
+extra macOS privacy permissions or sandbox bypass are requested by the reporter.
+If rendering fails, the Markdown is preserved: retry only `pharos render <md>`
+from the host, without another model call.
+
 The route board and checkpoints remain available for a more detailed account.
 
 When a target is established, discuss the result with the main agent and ask

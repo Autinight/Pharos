@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pharos"
-version = "3.1.1a2"
+version = "3.1.1a3"
 description = "Mathematical research orchestration with persistent fact graphs"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -25,7 +25,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Mathematics",
 ]
 # Core stores are stdlib-only; macOS computation uses sampled process-group RSS.
-dependencies = ["psutil>=6; sys_platform == 'darwin'"]
+dependencies = ["psutil>=6; sys_platform == 'darwin'", "pypdf>=6"]
 
 [project.urls]
 Repository = "https://github.com/Autinight/Pharos"

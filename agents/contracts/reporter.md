@@ -36,7 +36,9 @@ Read-only. The `reader` MCP role gives you `gm_search`, `gm_get`,
 - `../paper/` — the outline and the sections, once writing has begun.
 
 From this directory the `pharos` CLI answers only `pharos usage` (elapsed time,
-cost, worker deaths, IO/CPU pressure) and `pharos render`; the directory gate
+cost, worker deaths, IO/CPU pressure) and `pharos render`; for this report,
+**do not invoke `pharos render` or launch a browser**. The calling host handles
+PDF rendering after your Markdown session finishes. The directory gate
 refuses every other verb here, so the paper's state is read from its files
 (below). You write nothing to global memory or the fact graph, and you compute
 nothing.
@@ -180,11 +182,17 @@ sentence that no checkpoint or route board framed them.
 
 ## Output
 
-`<project>` is the name of the directory above you. Write
-`../human_report/md/<project>_<YYMMDDHHMM>.md` — the stamp in local time,
-`date +%y%m%d%H%M` (e.g. `Mbar17_2609021949`) — then render it from here with
-`pharos render ../human_report/md/<project>_<YYMMDDHHMM>.md`; the PDF lands in
-`../human_report/pdf/` under the same name.
+Write Markdown to the **exact `Report output` path supplied by the launcher**.
+It is a unique file under `../human_report/md/`; never overwrite an earlier
+report. If no path was supplied, use `<project>_<YYMMDDHHMMSS>.md` there, adding
+a unique suffix if the name exists. `<project>` is the directory above you.
+
+After the self-check, end the session and report the Markdown path. **Do not
+render PDF, launch Chrome/Edge, or troubleshoot browser/system permissions.**
+The calling `pharos report` host renders the Markdown into `human_report/pdf/`
+under the same stem, outside this reporter's Codex sandbox, and checks its PDF
+structure and confirms it has pages. Your work ends with the checked Markdown; overall command success
+also requires the host's PDF stage to succeed.
 
 **Format.** `pharos render` parses commonmark plus tables plus dollar-math and
 typesets the math with MathJax in headless Chromium, so: exactly one H1, on
@@ -194,11 +202,13 @@ since a stray dollar sign opens math — currency is written "USD 12.40"; no
 images, no raw HTML; tables allowed; displayed math kept moderate — MathJax
 has a 20-second budget, and a page whose typesetting outruns it prints as it
 stands; `\boxed{}`, `aligned` and `gathered` work, page-layout environments
-(`minipage`, `parbox`) do not.
+(`minipage`, `parbox`) do not. Supported TeX packages are `base`, `ams`,
+`newcommand`, and `noundefined`; do not use HTML/style/URL commands or `\\require`
+to load extensions. Raw HTML and Markdown images are disabled in the renderer.
 
-**Self-check.** Before you render: `fact_get` every `fact_id` the report
+**Self-check.** Before ending the Markdown session: `fact_get` every `fact_id` the report
 cites, and drop or mark "id not found" any statement whose id fails; the H1 is
 the first line and the only one; in proving mode the report ends with the
-boxed remaining statement or the sentence that the checkpoint names none. After you render:
-`../human_report/pdf/<project>_<YYMMDDHHMM>.pdf` exists and is non-empty. The
-report is not done until the render has succeeded.
+boxed remaining statement or the sentence that the checkpoint names none.
+Confirm your requested Markdown exists and is non-empty, then stop. PDF
+creation and validation belong to the host; do not start a render/retry loop.

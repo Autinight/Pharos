@@ -1,5 +1,53 @@
 # macOS preview validation
 
+## 3.1.1a3 — sandboxed Markdown, host-rendered PDF
+
+Validated 2026-10-21 on Apple Silicon, Darwin 25.5.0, Python 3.12.14.
+This validation used offline writer stubs, native Codex **0.163.0** sandboxing,
+and real Chrome. **No Pharos/Codex model inference was requested.**
+
+| Check | Result |
+| --- | --- |
+| Final full regression | **218 passed**, 67.32 seconds, no skips |
+| Bash syntax / Python compilation / diff whitespace | Passed |
+| Native Codex sandbox writer | Markdown written to the explicitly writable output directory |
+| Write outside reporter home and Markdown directory | Denied with `PermissionError`; probe file absent |
+| Calling-host Chrome rendering | Passed; distinct host/writer PIDs; **49,971-byte, one-page PDF** |
+| PDF structure | Strict `pypdf` parsing, unencrypted, nonzero pages |
+| Fresh output identity | Exact UUID-named Markdown/PDF pair; old or unrequested reports rejected |
+| Bad output regressions | Empty/whitespace Markdown, symbolic/hard links, bad/truncated PDFs rejected |
+| Writer/render failure | Nonzero result; Markdown retained for render-only retry |
+| Host content boundary | Raw HTML and Markdown images disabled; MathJax packages explicitly limited |
+| Real-browser resource check | MathJax ran; only the fixed local-server `tex-svg.js` was requested; no model-supplied URL/style/image requests |
+| Dependency installation | `pypdf>=6` in core dependencies and bootstrap health check; validated with 6.21.1 |
+| Live model end-to-end rerun | **Not performed** for a3; a2's historical results below remain unchanged |
+| Intel macOS / Linux hardware | Not exercised |
+
+The reporter now runs with `workspace-write`, adds only `human_report/md` as
+an extra writable directory, and pins the project's Pharos **reader** gateway.
+It finishes after Markdown self-check. The invoking host renders the exact
+requested file only after a successful writer exit, and validates the PDF.
+This removes the reporter's browser/retry loop without weakening its sandbox.
+
+The native offline check used `codex sandbox -c 'sandbox_mode="workspace-write"'`
+and explicit Markdown writable roots with an isolated, empty shared Codex home.
+The native CLI's `sandbox` command directly accepts command arguments; it has
+no `macos` subcommand. Its `--cd` flag is reserved for named permission-profile
+invocations, so the legacy-policy check inherits the reporter's cwd instead.
+This tests the actual filesystem/process boundary, not model compliance or
+new OAuth/network inference. The full suite used an installed local MathJax
+asset via `PHAROS_MATHJAX_JS`, so the browser resource test needed no CDN.
+
+An initial full run failed to obtain the existing cleanup stub's PID before
+its one-second deadline. That fixture now uses pytest's current interpreter
+instead of PATH-based Python lookup. Neither production nor test timeouts were
+increased; full process-tree cleanup assertions pass in the final run.
+
+Moving rendering to a caller does not remove an outer sandbox inherited by
+that caller. Invoke the report from a browser-capable host terminal/runner;
+if needed, retry only `pharos render <saved-md>` there. No macOS privacy
+permissions, HanaAgent signing, credentials, or global Codex settings changed.
+
 ## 3.1.1a2 — Codex 0.163.0 and headless MCP compatibility
 
 Validated 2026-10-20; report PDF recovered on the host 2026-10-21.

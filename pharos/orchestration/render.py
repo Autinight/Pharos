@@ -22,7 +22,8 @@ _PAGE = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>{title}</title>
 <style>{css}</style>
 <script>
-MathJax = {{ tex: {{ inlineMath: [["\\\\(", "\\\\)"]],
+MathJax = {{ tex: {{ packages: ["base", "ams", "newcommand", "noundefined"],
+                     inlineMath: [["\\\\(", "\\\\)"]],
                      displayMath: [["\\\\[", "\\\\]"]] }},
              svg: {{ fontCache: "local" }} }};
 </script>
@@ -38,7 +39,9 @@ def _md():
     from mdit_py_plugins.dollarmath import dollarmath_plugin
 
     # Accept display math immediately after prose without a blank line.
-    md = (MarkdownIt("commonmark")
+    # Reports are data, not browser programs. Do not execute raw HTML or load
+    # model-supplied remote images when rendering in the host process.
+    md = (MarkdownIt("commonmark", {"html": False}).disable("image")
           .use(dollarmath_plugin, double_inline=True).enable(["table"]))
 
     # Preserve TeX underscores and asterisks for MathJax.

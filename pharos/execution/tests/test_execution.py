@@ -253,7 +253,9 @@ def test_end_group_kills_a_tree_that_ignores_sigterm(tmp: Path):
 
 def test_run_round_hard_timeout_ends_the_whole_tree(tmp: Path):
     stub = tmp / "codex.py"
-    stub.write_text("#!/usr/bin/env python3\n" + _STUBBORN)
+    # Pin the already-running test interpreter: a different PATH Python's
+    # cold start must not consume this test's one-second cleanup deadline.
+    stub.write_text(f"#!{sys.executable}\n" + _STUBBORN)
     stub.chmod(0o755)
     pids = tmp / "pids"
     with _project_env(tmp), _env(PHAROS_CODEX_BIN=str(stub)):

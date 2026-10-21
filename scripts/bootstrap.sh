@@ -54,7 +54,7 @@ export PATH="$NODE_DIR/bin:$PATH"
 
 VENV="$RT/venv"
 export PIP_DISABLE_PIP_VERSION_CHECK=1
-DEPS='import mcp,fastapi,uvicorn,pydantic,openai,pytest,markdown_it,mdit_py_plugins; import sys; assert sys.version_info >= (3,10)'
+DEPS='import mcp,fastapi,uvicorn,pydantic,openai,pytest,markdown_it,mdit_py_plugins; from pypdf import PdfReader; import sys; assert sys.version_info >= (3,10)'
 if [ "$HOST" = Darwin ]; then DEPS="$DEPS; import psutil"; fi
 if "$VENV/bin/python" -c "$DEPS" 2>/dev/null; then
   log 'venv present + healthy'
