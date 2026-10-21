@@ -163,6 +163,24 @@ def test_do_new_scaffolds_project(tmp: Path):
             assert json.loads(wl.status.read_text())["state"] == "created"
 
 
+def test_headless_mcp_approval_is_scoped_to_the_pharos_gateway(tmp: Path):
+    with _project_env(tmp):
+        scaffold.do_new("P", roles="low:1")
+        root = L.project_dir("P")
+        configs = [root / ".codex/config.toml",
+                   root / "workers/low/.codex/config.toml",
+                   root / "reporter/.codex/config.toml",
+                   root / "chat/.codex/config.toml"]
+        for path in configs:
+            config = path.read_text()
+            server = config.split("[mcp_servers.pharos]", 1)[1].split("\n[", 1)[0]
+            assert 'default_tools_approval_mode = "approve"' in server
+            assert config.count("default_tools_approval_mode") == 1
+            assert 'args = ["-m", "pharos.gateway"]' in server
+            assert "PHAROS_ROLE = " in config
+            assert str(root) in config
+
+
 def test_do_new_refuses_existing(tmp: Path):
     with _project_env(tmp):
         scaffold.do_new("P", roles="xhigh:1")

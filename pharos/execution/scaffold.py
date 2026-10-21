@@ -52,6 +52,8 @@ _CODEX_CONFIG = """\
 [mcp_servers.pharos]
 command = {python}
 args = ["-m", "pharos.gateway"]
+# Explicitly trust only this role/project-pinned Pharos gateway in headless Codex.
+default_tools_approval_mode = "approve"
 # Allow fact_submit to wait for a full verification.
 tool_timeout_sec = 100000
 
@@ -243,6 +245,7 @@ sleep_tool = true
 [mcp_servers.pharos]
 command = {python}
 args = ["-m", "pharos.gateway"]
+default_tools_approval_mode = "approve"
 tool_timeout_sec = 100000
 
 [mcp_servers.pharos.env]
@@ -367,6 +370,7 @@ network_access = true
 [mcp_servers.pharos]
 command = {python}
 args = ["-m", "pharos.gateway"]
+default_tools_approval_mode = "approve"
 
 [mcp_servers.pharos.env]
 PHAROS_ROLE = {role}

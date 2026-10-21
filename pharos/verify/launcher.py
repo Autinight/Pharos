@@ -85,7 +85,8 @@ def _mcp_config_arg() -> str:
     """Inject the pharos gateway (role=verifier) into the codex agent via `-c`,
     independent of CODEX_HOME. Runs the installed package (``python3 -m
     pharos.gateway``); the verifier role exposes only search_arxiv_theorems."""
-    return 'mcp_servers.pharos={command="python3",args=["-m","pharos.gateway"],env={PHAROS_ROLE="verifier"}}'
+    return ('mcp_servers.pharos={command="python3",args=["-m","pharos.gateway"],'
+            'default_tools_approval_mode="approve",env={PHAROS_ROLE="verifier"}}')
 
 
 def _utc_timestamp() -> str:

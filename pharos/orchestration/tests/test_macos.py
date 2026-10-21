@@ -56,6 +56,56 @@ def test_bootstrap_print_plan_has_no_side_effects(tmp_path):
     assert not (root / "runtime").exists()
 
 
+@pytest.mark.parametrize("override,expected", [("", "0.163.0"), ("0.162.0", "0.162.0")])
+def test_bootstrap_reports_pinned_codex_or_explicit_override(tmp_path, override, expected):
+    root = tmp_path / "checkout with spaces"
+    (root / "scripts").mkdir(parents=True)
+    for name in ("bootstrap.sh", "platform.sh"):
+        shutil.copyfile(ROOT / "scripts" / name, root / "scripts" / name)
+    row = _bash(f'bash "{root}/scripts/bootstrap.sh" --print-plan',
+                PHAROS_BOOTSTRAP_PYTHON=sys.executable,
+                PHAROS_CODEX_SOURCE_VERSION=override)
+    assert row.returncode == 0, row.stderr
+    assert f"codex_npm_version={expected}" in row.stdout.splitlines()
+    assert not (root / "runtime").exists()
+
+
+def test_matching_codex_package_still_requires_a_working_native_binary(tmp_path):
+    root = tmp_path / "checkout with spaces"
+    (root / "scripts").mkdir(parents=True)
+    for name in ("bootstrap.sh", "platform.sh"):
+        shutil.copyfile(ROOT / "scripts" / name, root / "scripts" / name)
+    node = root / "runtime/node22/bin/node"
+    node.parent.mkdir(parents=True)
+    node.write_text('#!/bin/sh\n'
+                    'case "$1" in\n'
+                    '  --version) echo v22.14.0;;\n'
+                    '  -p) echo 0.163.0;;\n'
+                    '  *) echo "native CLI failed" >&2; exit 23;;\n'
+                    'esac\n')
+    node.chmod(0o755)
+    venv = root / "runtime/venv/bin"
+    venv.mkdir(parents=True)
+    for name in ("python", "pip"):
+        stub = venv / name
+        stub.write_text("#!/bin/sh\nexit 0\n")
+        stub.chmod(0o755)
+    package = root / "runtime/codex-npm/lib/node_modules/@openai/codex"
+    (package / "bin").mkdir(parents=True)
+    (package / "package.json").write_text('{"version":"0.163.0"}')
+    (package / "bin/codex.js").write_text("// native launch is stubbed\n")
+    row = _bash(f'bash "{root}/scripts/bootstrap.sh"',
+                PHAROS_BOOTSTRAP_PYTHON=sys.executable,
+                PHAROS_CODEX_SOURCE_VERSION="0.163.0",
+                PHAROS_LOCAL_BIN=str(tmp_path / "local-bin"))
+    assert row.returncode != 0
+    assert "matching codex 0.163.0 present" in row.stdout
+    assert "FATAL: the installed native Codex CLI cannot start" in row.stdout
+    assert "Installed. No research" not in row.stdout
+    assert not (root / "runtime/runtime.env").exists()
+    assert not (tmp_path / "local-bin/pharos").exists()
+
+
 def test_python_override_is_validated(tmp_path):
     script = f'source "{ROOT}/scripts/platform.sh"; pharos_find_python'
     good = _bash(script, PHAROS_BOOTSTRAP_PYTHON=sys.executable)

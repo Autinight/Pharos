@@ -69,7 +69,8 @@ def test_build_codex_command_shape():
     assert "-C" in cmd  # agent home
     # gateway injected via -c with role=verifier
     assert "-c" in cmd
-    assert any('mcp_servers.pharos=' in a and 'PHAROS_ROLE="verifier"' in a for a in cmd)
+    assert any('mcp_servers.pharos=' in a and 'PHAROS_ROLE="verifier"' in a
+               and 'default_tools_approval_mode="approve"' in a for a in cmd)
     assert "--dangerously-bypass-approvals-and-sandbox" in cmd
     assert cmd[-1] == "-"
     prompt = launcher.build_prompt("RID", _STMT, _PROOF)

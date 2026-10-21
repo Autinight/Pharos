@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pharos"
-version = "3.1.1a1"
+version = "3.1.1a2"
 description = "Mathematical research orchestration with persistent fact graphs"
 readme = "README.md"
 requires-python = ">=3.10"

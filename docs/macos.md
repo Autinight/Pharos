@@ -37,8 +37,21 @@ pharos doctor --offline                # no model/literature backend requests
 
 The downloadable installer bundle also provides **Install Pharos.command**;
 it invokes the same bootstrap. Installation downloads a matching Node runtime,
-the pinned Codex CLI, Python dependencies and MathJax. It installs an editable
-Python package under `runtime/venv` and links only `pharos` into `~/.local/bin`.
+Codex CLI **0.163.0**, Python dependencies and MathJax. The installer verifies
+that the native Codex executable starts, including when reusing an existing
+package. `--print-plan` reports the selected Codex version;
+`PHAROS_CODEX_SOURCE_VERSION` remains an explicit version override. Generated
+actor configs explicitly approve only the local `pharos` MCP server, whose
+existing gateway still enforces each actor's role/project boundary. Other MCP
+servers and the caller's sandbox settings are not granted broader access.
+This is required for headless tool calls in current Codex. For existing preview
+projects, worker/side-actor configs refresh on launch. Existing **main** configs
+need `default_tools_approval_mode = "approve"` added inside their existing
+`[mcp_servers.pharos]` table before restarting the main agent; merely restarting
+does not regenerate that config. Do not apply this approval to unrelated MCP
+servers. Overrides to older Codex versions are not covered by this validation.
+
+The installer creates an editable Python package under `runtime/venv` and links only `pharos` into `~/.local/bin`.
 It does **not** replace your global `codex`, configure a login unless supplied
 settings request it, install a launch agent, or start research. Set
 `PHAROS_LOCAL_BIN` to choose a different CLI-link directory, or

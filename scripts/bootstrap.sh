@@ -7,14 +7,15 @@ PHAROS_ROOT="$(cd "$HERE/.." && pwd)"
 . "$HERE/platform.sh"
 RT="$PHAROS_ROOT/runtime"
 NODE_VERSION="${NODE_VERSION:-v22.14.0}"
-CODEX_NPM_VERSION="${PHAROS_CODEX_SOURCE_VERSION:-0.153.4}"
+CODEX_NPM_VERSION="${PHAROS_CODEX_SOURCE_VERSION:-0.163.0}"
 TARBALL="$(pharos_node_archive "$NODE_VERSION")"
 PYBASE="$(pharos_find_python)"
 HOST="$(uname -s)"
 log(){ printf '[bootstrap] %s\n' "$*"; }
 case "${1:-}" in
   --print-plan)
-    printf 'platform=%s\nnode_archive=%s\npython=%s\nruntime=%s\n' "$HOST" "$TARBALL" "$PYBASE" "$RT"
+    printf 'platform=%s\nnode_archive=%s\npython=%s\nruntime=%s\ncodex_npm_version=%s\n' \
+      "$HOST" "$TARBALL" "$PYBASE" "$RT" "$CODEX_NPM_VERSION"
     exit 0 ;;
   '') ;;
   *) echo 'Usage: bash scripts/bootstrap.sh [--print-plan]' >&2; exit 2 ;;
@@ -86,6 +87,11 @@ else
   "${NICE[@]}" "$NODE_DIR/bin/npm" install -g --prefix "$CODEX_NPM" "@openai/codex@$CODEX_NPM_VERSION"
   [ -f "$CODEX_JS" ] || { log 'FATAL: codex.js not found'; exit 1; }
 fi
+# A matching package.json is insufficient if its native optional dependency is
+# missing or incompatible. Check the executable before advertising an install.
+CODEX_NATIVE_VERSION="$("$NODE_DIR/bin/node" "$CODEX_JS" --version)" \
+  || { log 'FATAL: the installed native Codex CLI cannot start'; exit 1; }
+log "verified $CODEX_NATIVE_VERSION"
 
 if [ "$HOST" = Linux ] && command -v systemctl >/dev/null 2>&1; then
   SLICE_DST="$HOME/.config/systemd/user/pharos-compute.slice"

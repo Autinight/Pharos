@@ -1,7 +1,59 @@
-# macOS preview validation: 3.1.1a1
+# macOS preview validation
+
+## 3.1.1a2 — Codex 0.163.0 and headless MCP compatibility
+
+Validated 2026-10-20; report PDF recovered on the host 2026-10-21.
+Host: Apple Silicon (arm64), Darwin 25.5.0, Python 3.12.14.
+
+| Check | Result |
+| --- | --- |
+| Final regression suite | **197 passed**, 66.70 seconds, no skips |
+| Bash syntax / Python compilation / diff whitespace | Passed |
+| Bootstrap plan | Default Codex **0.163.0** and explicit override covered |
+| Broken native CLI despite matching package metadata | Fails closed; regression passed |
+| Isolated installer upgrade | Passed in a path with spaces, temporary HOME and CLI-link directory |
+| Native Codex | **codex-cli 0.163.0** |
+| Existing ChatGPT OAuth, gpt-6.1-sol | Live probe returned **PHAROS_OAUTH_61_OK**, exit 0 |
+| Headless Pharos MCP | Explicit approval scoped to the local Pharos server; role/project restrictions retained |
+| Real worker and fresh-session verifier | **Passed**, gpt-6.1-sol / low; verdict **correct**, no critical errors or gaps |
+| Fact graph | Accepted fact **0d5cc08a111e25e7** for the elementary prime-square divisibility theorem |
+| Reporter Markdown | Generated using gpt-6.1-sol; checked against the accepted fact |
+| PDF regression | Passed with installed Chrome |
+| Demo PDF recovery | Host rendering passed; PDF signature checked, **265,035 bytes** |
+| Fully unattended report inside the demo Codex sandbox | **Not passed**; browser abort followed by the report-stage timeout |
+| Intel macOS / Linux hardware | Not exercised |
+
+The real demonstration used one worker and one round, the existing OAuth,
+no literature searches, and only **gpt-6.1-sol** after the user's model choice.
+No credentials or global Codex configuration were changed. No model fallback
+was permitted. Earlier failed demo attempts are not counted as successful runs.
+
+The first new-CLI demo exposed a separate headless MCP approval requirement.
+Generated actor configs and the verifier's inline config now set
+`default_tools_approval_mode="approve"` only on `mcp_servers.pharos`, using the
+field and enum in the official `rust-v0.163.0` configuration schema. Other MCP
+servers and sandbox settings are unchanged. Existing main configs require the
+migration documented in [macos.md](macos.md); old CLI overrides are unvalidated.
+
+The demo-only adapter retained **workspace-write**, unlike upstream Pharos's
+usual bypass mode. Its reporter wrote Markdown, but Chrome/Edge aborted inside
+that nested Codex sandbox; the bounded report process was stopped at its time
+limit and the verifier was shut down. The original receipt correctly remains
+`success: false`. A separate host-side render of that existing Markdown then
+produced the checked PDF, without another model call or relaxing the model's
+sandbox. This is a documented recovery, **not** a claim that the fully
+unattended sandboxed report step succeeded.
+
+The upgrade's regression, installer, native CLI, OAuth and Pharos MCP checks
+passed. The installable preview contains source only and downloads dependencies
+on installation. Credentials, private config, generated runtimes and demo
+projects are excluded. Installation does not start research or inference.
+
+## Historical validation: 3.1.1a1
 
 Date: 2026-10-20. Host: Apple Silicon (arm64), Darwin 25.5.0,
-Python 3.12.14. No real model credentials or autonomous research jobs were used.
+Python 3.12.14. The historical checks below used no real model credentials
+or autonomous research jobs.
 
 ## Results
 
